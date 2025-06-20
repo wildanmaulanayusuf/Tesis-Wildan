@@ -668,19 +668,19 @@ proc sleepMode {node} {
 # Mendefinisikan prosedur activeMode untuk mengurangi energi node saat dalam mode aktif (transfer data)
 proc activeMode {node} {
 # Mendeklarasikan variabel global yang akan digunakan dalam prosedur
-	global array names energy ns array names n
+	global energy ns n
   # Mengurangi energi node yang diberikan sebesar 81 (pengurangan untuk mode aktif/transfer)
  # Menandai node saat ini dengan label "TransferMode" pada waktu simulasi sekarang
-	$ns at [$ns now] "$n($i) label TransferMode"
+	 $ns at [$ns now] "$n($node) label TransferMode"
 	
 }
 # Mendefinisikan prosedur listenMode untuk mengurangi energi node saat dalam mode mendengarkan
 proc listenMode {node} {
 # Mendeklarasikan variabel global yang akan digunakan dalam prosedur
-	global array names energy ns array names n
+	 global energy ns n
 # Mengurangi energi node yang diberikan sebesar 30 (pengurangan untuk mode mendengarkan)
     # Menandai node saat ini dengan label "ListenMode" pada waktu simulasi sekarang
-	$ns at [$ns now] "$n($i) label ListenMode"
+	$ns at [$ns now] "$n($node) label ListenMode"
 	}
 # Loop untuk mengatur semua node dalam mode tidur di awal simulasi
 for {set i 0} {$i<$val(nn)} {incr i} {
@@ -692,29 +692,21 @@ for {set i 0} {$i<$val(nn)} {incr i} {
 # Pilih aksi (epsilon-greedy)
 proc choose_action {node current_state} {
     global Q epsilon actions
-   # Dengan probabilitas epsilon, memilih aksi secara acak (eksplorasi)
+    # Dengan probabilitas epsilon, memilih aksi secara acak (eksplorasi)
     if {[expr rand()] < $epsilon} {
         return [lindex $actions [expr int(rand()*3)]]
     } else {
- # Jika tidak, memilih aksi dengan nilai Q terbesar (eksploitasi)
+        # Jika tidak, memilih aksi dengan nilai Q terbesar (eksploitasi)
         set max_q -99999
-		# Inisialisasi nilai maksimum Q dengan angka sangat kecil
         set best_action ""
-		# Inisialisasi variabel untuk menyimpan aksi terbaik
         foreach action $actions {
-			# Loop untuk setiap aksi yang mungkin
             set q $Q($node,$current_state,$action)
-			# Ambil nilai Q untuk kombinasi node, state, dan action
             if {$q > $max_q} {
-				# Jika nilai Q lebih besar dari max_q saat ini
                 set max_q $q
-				# Update max_q dengan nilai Q yang lebih besar
                 set best_action $action
-				# Simpan aksi sebagai aksi terbaik sementara
             }
         }
         return $best_action
-		# Kembalikan aksi terbaik yang ditemukan
     }
 }
 
@@ -814,76 +806,56 @@ proc update_qvalue {node current_state action reward next_state} {
     set Q($node,$current_state,$action) $new_q
 }
 
-# Prosedur utama Q-Learning
+# Perbaikan prosedur utama Q-Learning
 proc QLearningNodeMode {} {
-    global ns val status actions energy
+    global ns val status actions energy n
 
     # Loop untuk setiap node dalam jaringan
     for {set i 0} {$i < $val(nn)} {incr i} {
-        # mengambil state (status) node saat ini
         set current_state $status($i)
-        # memilih aksi menggunakan metode epsilon-greedy
         set action [choose_action $i $current_state]
 
         # menentukan reward berdasarkan aksi yang dipilih
-        # Reward sederhana: mode sleep = reward tinggi, listen = sedang, active = rendah
         if {$action == "sleep"} {
-            # Hitung probabilitas wake-up adaptif berdasarkan energi dan tetangga
-            set energy  [$n($i) energy]
-            set neighbors [llength [$n($i) neighbors]]
-            set pwake [calculate_pwake $energy $neighbors]
-
-            # Modifikasi reward berdasarkan pwake (opsional, sebagai pengaruh eksternal)
-            set reward [expr {$reward + 0.1 * $pwake}]
-
-            # Batasi reward agar tidak terlalu ekstrem
-            if {$reward > 1.0} { set reward 1.0 }
-            if {$reward < -1.0} { set reward -1.0 }
-
-            set reward 1
-            # Set reward tinggi untuk mode sleep
+            # Perbaikan: gunakan energy($i) dan panjang tetangga dari CDS
+            set this_energy $energy($i)
+            set neighbors [llength $::CDS($i)]
+            # Jika ada fungsi calculate_pwake, gunakan, jika tidak, gunakan reward default
+            if {[info procs calculate_pwake] != {}} {
+                set pwake [calculate_pwake $this_energy $neighbors]
+                set reward [expr {1 + 0.1 * $pwake}]
+                if {$reward > 1.0} { set reward 1.0 }
+                if {$reward < -1.0} { set reward -1.0 }
+            } else {
+                set reward 1
+            }
             sleepMode $i
-            # Panggil fungsi sleepMode untuk node i
         } elseif {$action == "listen"} {
             set reward 0.5
-            # Set reward sedang untuk mode listen
             listenMode $i
-            # Panggil fungsi listenMode untuk node i
         } elseif {$action == "transmit"} {
             set reward -1
-            # Set reward rendah untuk mode transmit
             activeMode $i
-            # Panggil fungsi activeMode untuk node i
             set selected_slot [choose_subslot $i]
-            # Pilih subslot untuk transmisi
             update_transmit_subslot $i $selected_slot $reward
-            # Update Q-slot dan distribusi probabilitas subslot
         }
 
-        # State berikutnya diasumsikan sama dengan aksi yang dipilih
         set next_state $action
-        # Update Q-value berdasarkan pengalaman terbaru
         update_qvalue $i $current_state $action $reward $next_state
-        # Update status node ke state berikutnya
 
         # Approximate neighbor policy (sederhana: salin Q tetangga terdekat)
         set neighbor_list $::CDS($i)
         foreach nb $neighbor_list {
             foreach act $actions {
                 set Q($i,$current_state,$act) [expr 0.5 * $Q($i,$current_state,$act) + 0.5 * $Q($nb,$current_state,$act)]
-                # Update Q-value node i dengan rata-rata Q-value tetangga
             }
         }
 
-        # Adaptasi learning rate ξ
         set k 10
         set learning_rate [expr {$learning_rate * (1.0 / (1 + $k))}]
-        # Update learning rate secara adaptif
 
         set status($i) $next_state
-        # Update status node ke state berikutnya
     }
-    # Jadwalkan pemanggilan prosedur ini lagi setelah 1 detik simulasi
     $ns at [expr [$ns now] + 1.0] "QLearningNodeMode"
 }
 
