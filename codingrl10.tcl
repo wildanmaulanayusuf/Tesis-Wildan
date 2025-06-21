@@ -988,7 +988,7 @@ for {set des 0} {$des<$val(nn)} {incr des} {
 ####Agents Definition         
 # Mendefinisikan prosedur attach-cbr-traffic untuk menghubungkan lalu lintas CBR ke agen UDP pada node
 #CBR (Constant Bit Rate) = jenis lalu lintas jaringan di mana data dikirim dengan kecepatan tetap atau interval waktu yang konstan.
-proc attach-cbr-traffic {node sink size interval} {
+proc attach-cbr-traffic {src_node sink_agent dst_node size interval} {
  # Mendeklarasikan variabel global ns untuk simulasi
 	global ns
 # Membuat agen UDP baru sebagai sumber lalu lintas
@@ -1006,14 +1006,11 @@ proc attach-cbr-traffic {node sink size interval} {
  # Melampirkan aplikasi CBR ke agen UDP (source)
 	$traffic attach-agent $source
     # Menghubungkan agen sumber (source) ke agen tujuan (sink) untuk mengaktifkan komunikasi
-	$ns connect $source $sink
+	$ns connect $source $sink_agent
       
-        # Ambil id node dan sink
-    set node_id [$node id]
-    set sink_id [$sink id]
-
-    # Panggil trace_sink_receive dgn id (BUKAN objek node)
-    $ns at [$ns now] "trace_sink_receive $sink $node_id $sink_id"
+   set src_id [$src_node id]
+    # dst_node adalah id node tujuan yang dioper dari pemanggil (bukan $sink_agent id)
+    $ns at [$ns now] "trace_sink_receive $sink_agent $src_id $dst_node"
 
 # Mengembalikan objek traffic yang dibuat untuk referensi lebih lanjut
 	return $traffic
@@ -1037,7 +1034,7 @@ for {set i 5} {$i<$val(nn)} {incr i} {
 			$ns attach-agent $n($nein) $null3
  # Membuat lalu lintas CBR dengan ukuran paket 10 dan interval 0.05 untuk mengirim pesan dari node i ke agen null3
         # CBR (Constant Bit Rate) = tipe lalu lintas jaringan di mana data dikirim dengan kecepatan atau interval waktu yang konstan.
-			set cbr1 [attach-cbr-traffic $n($i) $null3 10 0.05]
+			set cbr1 [attach-cbr-traffic $n($i) $null3 $nein 10 0.05]
  # Menambahkan tanda pada node i (pengirim) berupa kotak merah (#f6546a) pada waktu simulasi saat ini
 			$ns at $timv "$n($i) add-mark m11 #f6546a square"
         # Menambahkan tanda pada node nein (penerima) berupa warna orange pada waktu simulasi saat ini
@@ -1082,7 +1079,7 @@ foreach rot $route($nid,$center) {
 	$ns attach-agent $n($rot) $null
  # Membuat lalu lintas CBR dengan ukuran paket 512 dan interval 0.05 untuk transmisi data dari node sumber ke node dalam rute
     # CBR (Constant Bit Rate) adalah jenis lalu lintas jaringan di mana data dikirim dengan kecepatan dan interval yang tetap atau konstan
-	set cbr [attach-cbr-traffic $n($soc) $null 512 0.05]
+	set cbr [attach-cbr-traffic $n($soc) $null $rot 512 0.05]
  # Menambahkan tanda visual pada node dalam rute (rot) dengan warna hijau (#00ff7f)
 	$ns at 0.3 "$n($rot) add-mark m2 #00ff7f"
 # Mengaktifkan mode aktif untuk node sumber pada waktu simulasi saat ini
@@ -1134,7 +1131,7 @@ foreach nod $f {
 	set null1 [new Agent/LossMonitor]
 	$ns attach-agent $n($rot) $null1
  # Membuat lalu lintas CBR untuk transmisi data dari node sink ke node dalam rute
-	set cbr [attach-cbr-traffic $n($soc) $null1 512 0.05]
+	set cbr [attach-cbr-traffic $n($soc) $null1 $rot 512 0.05]
   # Menambahkan tanda visual pada node dalam rute dengan warna hijau
 	$ns at $time "$n($rot) add-mark m1 green"
   # Menambahkan anotasi yang mencatat pengiriman pesan dari sensor (soc) ke sensor tujuan (rot)
