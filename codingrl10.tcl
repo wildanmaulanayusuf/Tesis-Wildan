@@ -451,9 +451,13 @@ array set transmit_success {}
 
 # Fungsi untuk menandai keberhasilan transmit
 proc mark_transmit_success {src dst} {
-    global transmit_success
+    global transmit_success ns
     set transmit_success($src) 1
-    puts "DEBUG: mark_transmit_success called for source $src to destination $dst at time [clock format [clock seconds] -format {%H:%M:%S}]"
+    if {[info exists ns]} {
+        puts "DEBUG: mark_transmit_success called for source $src to destination $dst at simtime [$ns now]"
+    } else {
+        puts "DEBUG: mark_transmit_success called for source $src to destination $dst (no simtime, ns not available)"
+    }
 }
 
 # Fungsi polling untuk cek penerimaan paket di agent sink
