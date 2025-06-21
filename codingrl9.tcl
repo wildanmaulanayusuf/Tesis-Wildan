@@ -399,13 +399,17 @@ for {set i 0} {$i<$val(nn)} {incr i} {
 }
 
 # Inisialisasi Q-table
-for {set i 0} {$i < $val(nn)} {incr i} { 
-	# Loop untuk setiap node (i) dari 0 sampai nn-1
-    foreach state $actions {
-		# Loop untuk setiap state yang mungkin (dalam actions)
-        foreach action $actions {
-            set Q($i,$state,$action) 0.0
-# Set nilai awal Q-value menjadi 0.0
+set energy_levels {"high" "medium" "low"}
+set neighbor_levels {"many" "few"}
+for {set i 0} {$i < $val(nn)} {incr i} {
+    foreach mode $actions {
+        foreach el $energy_levels {
+            foreach nl $neighbor_levels {
+                set state "$mode-$el-$nl"
+                foreach action $actions {
+                    set Q($i,$state,$action) 0.0
+                }
+            }
         }
     }
 }
@@ -440,6 +444,32 @@ set Etx 500e-6
 set Erx 500e-6
 set Eidle 100e-6
 set tp 1.0
+
+# Tambahkan di awal file (sebelum fungsi-fungsi RL)
+array set prev_energy {}
+
+# State function sesuai paper (mode, energy level, neighbor level)
+proc get_state {node} {
+    global status energy CDS
+    set mode $status($node)
+    set e $energy($node)
+    # Kategorisasi energi
+    if {$e > 700} {
+        set energy_level "high"
+    } elseif {$e > 300} {
+        set energy_level "medium"
+    } else {
+        set energy_level "low"
+    }
+    # Kategorisasi jumlah neighbor
+    set n [llength $::CDS($node)]
+    if {$n > 4} {
+        set neighbor_level "many"
+    } else {
+        set neighbor_level "few"
+    }
+    return "$mode-$energy_level-$neighbor_level"
+}
 
 proc PowerDissipation {} {
     global Etx Erx Eidle sn energy ns n status tp val
@@ -808,49 +838,45 @@ proc update_qvalue {node current_state action reward next_state} {
 
 # Perbaikan prosedur utama Q-Learning
 proc QLearningNodeMode {} {
-    global ns val status actions energy n Q
+    global ns val status actions energy n Q learning_rate prev_energy
 
     for {set i 0} {$i < $val(nn)} {incr i} {
-        set current_state $status($i)
+        # STATE: Gabungan mode, level energi, dan neighbor
+        set current_state [get_state $i]
         set action [choose_action $i $current_state]
 
-        # menentukan reward berdasarkan aksi yang dipilih
+        # Simpan energi sebelum aksi
+        set prev_energy($i) $energy($i)
+
+        # EXECUTE ACTION
         if {$action == "sleep"} {
-            set this_energy $energy($i)
-            set neighbors [llength $::CDS($i)]
-            if {[info procs calculate_pwake] != {}} {
-                set pwake [calculate_pwake $this_energy $neighbors]
-                set reward [expr {1 + 0.1 * $pwake}]
-                if {$reward > 1.0} { set reward 1.0 }
-                if {$reward < -1.0} { set reward -1.0 }
-            } else {
-                set reward 1
-            }
             sleepMode $i
         } elseif {$action == "listen"} {
-            set reward 0.5
             listenMode $i
         } elseif {$action == "transmit"} {
-            set reward -1
             activeMode $i
             set selected_slot [choose_subslot $i]
-            update_transmit_subslot $i $selected_slot $reward
+            update_transmit_subslot $i $selected_slot 0
         }
 
-        set next_state $action
+        # REWARD DINAMIS SESUAI PAPER: reward = -deltaE + beta * S
+        set deltaE [expr {$prev_energy($i) - $energy($i)}]
+        set beta 1.0
+        # S: sukses transmit atau coverage, dummy: sukses transmit = 1, lainnya = 0
+        if {$action == "transmit"} {
+            set S 1
+        } else {
+            set S 0
+        }
+        set reward [expr {-1.0 * $deltaE + $beta * $S}]
+
+        # NEXT STATE
+        set next_state [get_state $i]
         update_qvalue $i $current_state $action $reward $next_state
 
-        # Approximate neighbor policy safely: only update if Q exists for both keys
-        set neighbor_list $::CDS($i)
-        foreach nb $neighbor_list {
-            foreach act $actions {
-                # Pastikan Q($i,$current_state,$act) dan Q($nb,$current_state,$act) ada
-                if { [info exists Q($i,$current_state,$act)] && [info exists Q($nb,$current_state,$act)] } {
-                    set Q($i,$current_state,$act) [expr 0.5 * $Q($i,$current_state,$act) + 0.5 * $Q($nb,$current_state,$act)]
-                }
-            }
-        }
+        # POLICY SHARING DIHAPUS sesuai paper (tidak ada average Q dengan tetangga)
 
+        # Learning rate adaptif (opsional sesuai paper)
         set k 10
         set learning_rate [expr {$learning_rate * (1.0 / (1 + $k))}]
         set status($i) $next_state
