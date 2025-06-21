@@ -453,6 +453,19 @@ array set transmit_success {}
 proc mark_transmit_success {src dst} {
     global transmit_success
     set transmit_success($src) 1
+    puts "DEBUG: mark_transmit_success called for source $src to destination $dst at time [clock format [clock seconds] -format {%H:%M:%S}]"
+}
+
+# fungsi polling untuk cek penerimaan paket di agent sink (LossMonitor/UDP)
+proc trace_sink_receive {sink node} {
+    global ns
+    # Periksa apakah agent sink sudah menerima paket (npkts_ > 0)
+    if {[$sink set npkts_] > 0} {
+        mark_transmit_success [$node id] [$sink id]
+    } else {
+        # Polling setiap 0.05 detik supaya tidak membebani simulasi
+        $ns at [expr [$ns now] + 0.05] "trace_sink_receive $sink $node"
+    }
 }
 
 # State function sesuai paper (mode, energy level, neighbor level)
@@ -995,9 +1008,7 @@ proc attach-cbr-traffic {node sink size interval} {
 	$traffic attach-agent $source
     # Menghubungkan agen sumber (source) ke agen tujuan (sink) untuk mengaktifkan komunikasi
 	$ns connect $source $sink
-
-$ns at [$ns now] "$sink set recv_callback [list mark_transmit_success [$node id] [$sink id]]"
-
+      $ns at [$ns now] "trace_sink_receive $sink $node"
 
 # Mengembalikan objek traffic yang dibuat untuk referensi lebih lanjut
 	return $traffic
