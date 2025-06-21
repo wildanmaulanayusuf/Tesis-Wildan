@@ -996,7 +996,7 @@ proc attach-cbr-traffic {src_node sink_agent dst_node size interval} {
  # Mengatur kelas agen UDP ke 2 (untuk tujuan klasifikasi)
 	$source set class_ 2
  # Melampirkan agen UDP (source) ke node yang ditentukan
-	$ns attach-agent $node $source
+$ns attach-agent $src_node $source
 # Membuat aplikasi Traffic/CBR (Constant Bit Rate) baru
 	set traffic [new Application/Traffic/CBR]
    # Mengatur ukuran paket untuk lalu lintas CBR
