@@ -710,35 +710,30 @@ for {set i 0} {$i<$val(nn)} {incr i} {
 
 # Mendefinisikan prosedur sleepMode untuk mengurangi energi node saat dalam mode tidur
 proc sleepMode {node} {
-# Mendeklarasikan variabel global yang akan digunakan dalam prosedur
-    global energy ns n
+    global energy ns n status
     set E_sleep 0.003
- # Mengurangi energi node yang diberikan sebesar 0.003 (pengurangan untuk mode tidur)
-  # Menandai node saat ini dengan label "SleepMode" pada waktu simulasi sekarang
     set energy($node) [expr $energy($node)-$E_sleep]
     $ns at [$ns now] "$n($node) label SleepMode"
+    set status($node) "sleep"
 }
 
 # Mendefinisikan prosedur activeMode untuk mengurangi energi node saat dalam mode aktif (transfer data)
 proc activeMode {node {pkt_size 64}} {
-# Mendeklarasikan variabel global yang akan digunakan dalam prosedur
-	 global energy ns n Etx
-  # Mengurangi energi node yang diberikan sebesar 81 (pengurangan untuk mode aktif/transfer)
- # Menandai node saat ini dengan label "TransferMode" pada waktu simulasi sekarang
-	set E_tx [expr {$Etx * $pkt_size * 8}]
+    global energy ns n Etx status
+    set E_tx [expr {$Etx * $pkt_size * 8}]
     set energy($node) [expr $energy($node)-$E_tx]
     $ns at [$ns now] "$n($node) label TransferMode"
+    set status($node) "active"
 }
 # Mendefinisikan prosedur listenMode untuk mengurangi energi node saat dalam mode mendengarkan
 proc listenMode {node {pkt_size 64}} {
-# Mendeklarasikan variabel global yang akan digunakan dalam prosedur
-	 global energy ns n Erx
-      set E_listen [expr {$Erx * $pkt_size * 8}]
-# Mengurangi energi node yang diberikan sebesar 30 (pengurangan untuk mode mendengarkan)
-    # Menandai node saat ini dengan label "ListenMode" pada waktu simulasi sekarang
-	set energy($node) [expr $energy($node)-$E_listen]
+    global energy ns n Erx status
+    set E_listen [expr {$Erx * $pkt_size * 8}]
+    set energy($node) [expr $energy($node)-$E_listen]
     $ns at [$ns now] "$n($node) label ListenMode"
-	}
+    set status($node) "listen"
+}
+
 # Loop untuk mengatur semua node dalam mode tidur di awal simulasi
 for {set i 0} {$i<$val(nn)} {incr i} {
   # Memanggil prosedur sleepMode untuk setiap node dengan indeks i
