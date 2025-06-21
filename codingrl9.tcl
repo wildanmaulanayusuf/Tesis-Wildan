@@ -808,19 +808,16 @@ proc update_qvalue {node current_state action reward next_state} {
 
 # Perbaikan prosedur utama Q-Learning
 proc QLearningNodeMode {} {
-    global ns val status actions energy n
+    global ns val status actions energy n Q
 
-    # Loop untuk setiap node dalam jaringan
     for {set i 0} {$i < $val(nn)} {incr i} {
         set current_state $status($i)
         set action [choose_action $i $current_state]
 
         # menentukan reward berdasarkan aksi yang dipilih
         if {$action == "sleep"} {
-            # Perbaikan: gunakan energy($i) dan panjang tetangga dari CDS
             set this_energy $energy($i)
             set neighbors [llength $::CDS($i)]
-            # Jika ada fungsi calculate_pwake, gunakan, jika tidak, gunakan reward default
             if {[info procs calculate_pwake] != {}} {
                 set pwake [calculate_pwake $this_energy $neighbors]
                 set reward [expr {1 + 0.1 * $pwake}]
@@ -843,17 +840,19 @@ proc QLearningNodeMode {} {
         set next_state $action
         update_qvalue $i $current_state $action $reward $next_state
 
-        # Approximate neighbor policy (sederhana: salin Q tetangga terdekat)
+        # Approximate neighbor policy safely: only update if Q exists for both keys
         set neighbor_list $::CDS($i)
         foreach nb $neighbor_list {
             foreach act $actions {
-                set Q($i,$current_state,$act) [expr 0.5 * $Q($i,$current_state,$act) + 0.5 * $Q($nb,$current_state,$act)]
+                # Pastikan Q($i,$current_state,$act) dan Q($nb,$current_state,$act) ada
+                if { [info exists Q($i,$current_state,$act)] && [info exists Q($nb,$current_state,$act)] } {
+                    set Q($i,$current_state,$act) [expr 0.5 * $Q($i,$current_state,$act) + 0.5 * $Q($nb,$current_state,$act)]
+                }
             }
         }
 
         set k 10
         set learning_rate [expr {$learning_rate * (1.0 / (1 + $k))}]
-
         set status($i) $next_state
     }
     $ns at [expr [$ns now] + 1.0] "QLearningNodeMode"
