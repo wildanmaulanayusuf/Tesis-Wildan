@@ -896,11 +896,10 @@ proc QLearningNodeMode {} {
         update_qvalue $i $current_state $action $reward $next_state
         set k 10
         set learning_rate [expr {$learning_rate * (1.0 / (1 + $k))}]
-        set status($i) $next_state
+        set status($i) $action    ;# <<< PATCH di sini, JANGAN $next_state
     }
     $ns at [expr [$ns now] + 1.0] "QLearningNodeMode"
 }
-
 # Menjadwalkan pemanggilan pertama prosedur QLearningNodeMode pada waktu simulasi 0.0 detik
 # Prosedur ini akan berjalan periodik dan mengatur mode node menggunakan Q-Learning
 #Mulai Q-Learning
