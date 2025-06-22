@@ -13,9 +13,9 @@ set val(energymodel)    EnergyModel;     #energymodel, mengatur model energi dal
 set val(x)      8431                      ;#x dimensi topografi/topologi
 set val(y)      1000                      ;#y dimensi topologi
 set val(stop)   60.0                         ;#waktu simulasi berhenti
-set epsilon 0.5         ;# Mulai dengan eksplorasi tinggi
-set epsilon_decay 0.05  ;# Penurunan epsilon setiap 100 detik
-set epsilon_min 0.1     ;# Nilai minimum epsilon
+set epsilon 0.5
+set epsilon_decay 0.10
+set epsilon_min 0.05
 
 #####inisialisasi###
 #create a ns simulator 
@@ -924,6 +924,7 @@ proc QLearningNodeMode {} {
         } elseif {$action == "listen"} {
             listenMode $i 64
         } elseif {$action == "transmit"} {
+            # Hapus pembatasan transmit, biar node bisa transmit terus sesuai RL
             activeMode $i 512
             set selected_slot [choose_subslot $i]
             update_transmit_subslot $i $selected_slot 0
@@ -931,27 +932,26 @@ proc QLearningNodeMode {} {
             set transmitted_this_round($i) 1
             puts "DEBUG: Node $i transmit pada waktu [$ns now]"
 
-            # Interval CBR diperbesar untuk mengurangi collision
+            # Interval CBR dibuat normal agar sempat banyak transmit (0.3 detik)
             global center
             set sink_agent [new Agent/LossMonitor]
             $ns attach-agent $n($center) $sink_agent
-            set traffic [attach-cbr-traffic $n($i) $sink_agent $center 512 0.2]
+            set traffic [attach-cbr-traffic $n($i) $sink_agent $center 512 0.3]
             $ns at [$ns now] "trace_sink_receive $sink_agent $i $center"
         }
 
         set deltaE [expr {$prev_energy($i) - $energy($i)}]
-        set beta 5.0 ;# reward sukses lebih besar
-        set S $transmit_success($i)
-        set reward [expr {-1.0 * $deltaE + $beta * $S}]
+        set beta 100.0
+        set reward [expr {-5.0 * $deltaE + $beta * $transmit_success($i)}]
         set next_state [get_state $i]
         update_qvalue $i $current_state $action $reward $next_state
-        set k 10
+        set k 7
         set learning_rate [expr {$learning_rate * (1.0 / (1 + $k))}]
         set status($i) $action
     }
 
-    # Turunkan epsilon setiap 100 detik, minimal epsilon_min
-    if { [expr int([$ns now]) % 100] == 0 && $epsilon > $epsilon_min } {
+    # Penurunan epsilon tiap 5 detik, tetap ada eksplorasi
+    if { [expr int([$ns now]) % 5] == 0 && $epsilon > $epsilon_min } {
         set epsilon [expr {$epsilon - $epsilon_decay}]
         if {$epsilon < $epsilon_min} {
             set epsilon $epsilon_min
