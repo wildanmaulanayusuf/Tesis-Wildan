@@ -898,7 +898,7 @@ proc QLearningNodeMode {} {
 # Menjadwalkan pemanggilan pertama prosedur QLearningNodeMode pada waktu simulasi 0.0 detik
 # Prosedur ini akan berjalan periodik dan mengatur mode node menggunakan Q-Learning
 #Mulai Q-Learning
-$ns at 0.0 "QLearningNodeMode"
+$ns at 0.13 "QLearningNodeMode"
 
 
 #Route Path Discovery
@@ -1026,6 +1026,7 @@ for {set i 5} {$i<$val(nn)} {incr i} {
 # Iterasi melalui setiap tetangga dari node i yang disimpan dalam daftar CDS($i)
     # CDS (Connected Dominating Set) = konsep dalam jaringan, khususnya pada jaringan nirkabel, yang digunakan untuk mendefinisikan subset dari node yang memiliki konektivitas dan cakupan yang efektif dalam jaringan
 		foreach nein $CDS($i) {
+
  # Menambahkan anotasi pada waktu tertentu untuk mencatat pengiriman paket 'temperature' dari node i ke tetangganya nein
 			$ns at $timv "$ns trace-annotate \"The node $i broadcast the 'temperature' Packet to its neighbour $nein at timeslot $timv\""
 # Melampirkan agen LossMonitor ke node tetangga untuk memantau kerugian paket
@@ -1038,17 +1039,19 @@ for {set i 5} {$i<$val(nn)} {incr i} {
         # Menambahkan tanda pada node nein (penerima) berupa warna orange pada waktu simulasi saat ini
 			$ns at $timv "$n($nein) add-mark m1 orange"
 # Mengaktifkan mode aktif untuk node i pada waktu simulasi saat ini
+$ns at $timv "puts \"DEBUG $timv: $i status=\$status($i) sebelum activeMode\""
 			$ns at $timv "activeMode $i"
  # Mengaktifkan mode mendengarkan untuk node nein pada waktu simulasi saat ini
+ $ns at $timv "puts \"DEBUG $timv: $nein status=\$status($nein) sebelum listenMode\""
 	        $ns at $timv "listenMode $nein"
  # Memulai lalu lintas CBR pada waktu simulasi saat ini
 			$ns at $timv "$cbr1 start"
  # Menghentikan lalu lintas CBR setelah 0.10 detik dari waktu awal
 			$ns at [expr $timv+0.10] "$cbr1 stop"
  # Mengaktifkan mode tidur untuk node i setelah 0.10 detik dari waktu awal
-			$ns at [expr $timv+0.15] "sleepMode $i"
+			$ns at [expr $timv+0.12] "sleepMode $i"
  # Mengaktifkan mode tidur untuk node nein setelah 0.15 detik dari waktu awal
-			$ns at [expr $timv+0.15] "sleepMode $nein"
+			$ns at [expr $timv+0.12] "sleepMode $nein"
  # Menghapus tanda dari node i setelah 0.10 detik dari waktu awal
 			$ns at [expr $timv+0.10] "$n($i) delete-mark m11"
  # Menghapus tanda dari node nein setelah 0.10 detik dari waktu awal
@@ -1081,15 +1084,18 @@ foreach rot $route($nid,$center) {
  # Menambahkan tanda visual pada node dalam rute (rot) dengan warna hijau (#00ff7f)
 	$ns at 0.3 "$n($rot) add-mark m2 #00ff7f"
 # Mengaktifkan mode aktif untuk node sumber pada waktu simulasi saat ini
+$ns at $tim "puts \"DEBUG $tim: $soc status=\$status($soc) sebelum activeMode\""
 	$ns at $tim "activeMode $soc"
  # Mengaktifkan mode mendengarkan untuk node dalam rute pada waktu simulasi saat ini
+ $ns at $tim "puts \"DEBUG $tim: $rot status=\$status($rot) sebelum listenMode\""
 	$ns at $tim "listenMode $rot"
  # Memulai lalu lintas CBR pada waktu simulasi saat ini
 	$ns at $tim "$cbr start"
 # Menghentikan lalu lintas CBR setelah 2.5 detik dari waktu awal
 	$ns at [expr $tim+2.5] "$cbr stop"
  # Mengaktifkan mode tidur untuk node sumber setelah 2.5 detik dari waktu awal
-	$ns at [expr $tim+2.5] "sleepMode $soc"
+	$ns at [expr $tim+2.52] "sleepMode $soc"
+    $ns at [expr $tim+2.52] "sleepMode $rot"
   # Menghapus tanda visual dari node dalam rute setelah 2.5 detik dari waktu awal
 	$ns at [expr $tim+2.5] "$n($rot) delete-mark m2"
   # Menambahkan 2.5 detik ke variabel tim untuk waktu simulasi berikutnya
