@@ -723,7 +723,7 @@ proc activeMode {node {pkt_size 64}} {
     set E_tx [expr {$Etx * $pkt_size * 8}]
     set energy($node) [expr $energy($node)-$E_tx]
     $ns at [$ns now] "$n($node) label TransferMode"
-    set status($node) "active"
+    set status($node) "transmit"   ;# PATCH: HANYA transmit!
 }
 # Mendefinisikan prosedur listenMode untuk mengurangi energi node saat dalam mode mendengarkan
 proc listenMode {node {pkt_size 64}} {
