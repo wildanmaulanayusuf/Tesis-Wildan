@@ -581,26 +581,15 @@ set en3 [list 5 6 7 8 9 10 11 12 18 19 25 26 31 32 38 39 45 46 47 48 49 50 51 52
 
 # Loop untuk mengatur warna node
 # Iterasi melalui setiap elemen dalam daftar en1, yang disimpan dalam variabel len
-foreach len $en1 {
-   # Mengatur warna awal node dengan indeks len menjadi 'hotpink'
-	$n($len) color hotpink
-   # Menjadwalkan perubahan warna node menjadi 'darkgreen' pada waktu simulasi 0.0
-		$ns at 0.0 "$n($len) color darkgreen"	
-		}
+foreach len $en1 { $n($len) color hotpink ; $ns at 0.0 "$n($len) color darkgreen" }
 # Iterasi melalui setiap elemen dalam daftar en2, yang disimpan dalam variabel len
-		foreach len $en2 {
-# Mengatur warna awal node dengan indeks len menjadi 'hotpink'
-	$n($len) color hotpink
-   # Menjadwalkan perubahan warna node menjadi 'darkgreen' pada waktu simulasi 0.0
-		$ns at 0.0 "$n($len) color darkgreen"	
-		}
+		foreach len $en2 { $n($len) color hotpink ; $ns at 0.0 "$n($len) color darkgreen" }
 # Iterasi melalui setiap elemen dalam daftar en3, yang disimpan dalam variabel len	
-foreach len $en3 {
-# Mengatur warna awal node dengan indeks len menjadi 'hotpink'
-	$n($len) color hotpink
-# Menjadwalkan perubahan warna node menjadi 'darkgreen' pada waktu simulasi 0.0
-		$ns at 0.0 "$n($len) color darkgreen"	
-		}
+foreach len $en3 { $n($len) color hotpink ; $ns at 0.0 "$n($len) color darkgreen" }
+
+$n($center) color orange
+$ns at 0.0 "$n($center) label SINK"
+$ns at 0.0 "$n($center) add-mark m3 blue hexagon"
 
 # Neighbor Node Discovery - Menemukan node tetangga untuk setiap node berdasarkan jarak
 # Loop untuk iterasi setiap node i dari 0 hingga jumlah total node nn
@@ -714,6 +703,7 @@ proc sleepMode {node} {
     set E_sleep 0.003
     set energy($node) [expr $energy($node)-$E_sleep]
     $ns at [$ns now] "$n($node) label SleepMode"
+     $ns at [$ns now] "$n($node) color gray"
     set status($node) "sleep"
 }
 
@@ -723,6 +713,7 @@ proc activeMode {node {pkt_size 64}} {
     set E_tx [expr {$Etx * $pkt_size * 8}]
     set energy($node) [expr $energy($node)-$E_tx]
     $ns at [$ns now] "$n($node) label TransferMode"
+     $ns at [$ns now] "$n($node) color orange" 
     set status($node) "transmit"   ;# PATCH: HANYA transmit!
 }
 # Mendefinisikan prosedur listenMode untuk mengurangi energi node saat dalam mode mendengarkan
@@ -731,6 +722,7 @@ proc listenMode {node {pkt_size 64}} {
     set E_listen [expr {$Erx * $pkt_size * 8}]
     set energy($node) [expr $energy($node)-$E_listen]
     $ns at [$ns now] "$n($node) label ListenMode"
+    $ns at [$ns now] "$n($node) color blue" 
     set status($node) "listen"
 }
 
@@ -1012,150 +1004,6 @@ $ns attach-agent $src_node $source
 
 # Mengembalikan objek traffic yang dibuat untuk referensi lebih lanjut
 	return $traffic
-}
-
-
-####Send the alarm to center node       
-
-# Menetapkan waktu awal pengiriman alarm
-set timv 0.5
-# Membuat agen pemantau kerugian paket untuk mengukur kehilangan data
-set null3 [new Agent/LossMonitor]
-# Skema penyiaran (broadcast) untuk node yang mengirim alarm ke node tetangga
-for {set i 5} {$i<$val(nn)} {incr i} {
-# Iterasi melalui setiap tetangga dari node i yang disimpan dalam daftar CDS($i)
-    # CDS (Connected Dominating Set) = konsep dalam jaringan, khususnya pada jaringan nirkabel, yang digunakan untuk mendefinisikan subset dari node yang memiliki konektivitas dan cakupan yang efektif dalam jaringan
-		foreach nein $CDS($i) {
-
- # Menambahkan anotasi pada waktu tertentu untuk mencatat pengiriman paket 'temperature' dari node i ke tetangganya nein
-			$ns at $timv "$ns trace-annotate \"The node $i broadcast the 'temperature' Packet to its neighbour $nein at timeslot $timv\""
-# Melampirkan agen LossMonitor ke node tetangga untuk memantau kerugian paket
-			$ns attach-agent $n($nein) $null3
- # Membuat lalu lintas CBR dengan ukuran paket 10 dan interval 0.05 untuk mengirim pesan dari node i ke agen null3
-        # CBR (Constant Bit Rate) = tipe lalu lintas jaringan di mana data dikirim dengan kecepatan atau interval waktu yang konstan.
-			set cbr1 [attach-cbr-traffic $n($i) $null3 $nein 10 0.05]
- # Menambahkan tanda pada node i (pengirim) berupa kotak merah (#f6546a) pada waktu simulasi saat ini
-			$ns at $timv "$n($i) add-mark m11 #f6546a square"
-        # Menambahkan tanda pada node nein (penerima) berupa warna orange pada waktu simulasi saat ini
-			$ns at $timv "$n($nein) add-mark m1 orange"
-# Mengaktifkan mode aktif untuk node i pada waktu simulasi saat ini
-$ns at $timv "puts \"DEBUG $timv: $i status=\$status($i) sebelum activeMode\""
-			$ns at $timv "activeMode $i"
- # Mengaktifkan mode mendengarkan untuk node nein pada waktu simulasi saat ini
- $ns at $timv "puts \"DEBUG $timv: $nein status=\$status($nein) sebelum listenMode\""
-	        $ns at $timv "listenMode $nein"
- # Memulai lalu lintas CBR pada waktu simulasi saat ini
-			$ns at $timv "$cbr1 start"
- # Menghentikan lalu lintas CBR setelah 0.10 detik dari waktu awal
-			$ns at [expr $timv+0.10] "$cbr1 stop"
- # Mengaktifkan mode tidur untuk node i setelah 0.10 detik dari waktu awal
-			$ns at [expr $timv+0.12] "sleepMode $i"
- # Mengaktifkan mode tidur untuk node nein setelah 0.15 detik dari waktu awal
-			$ns at [expr $timv+0.12] "sleepMode $nein"
- # Menghapus tanda dari node i setelah 0.10 detik dari waktu awal
-			$ns at [expr $timv+0.10] "$n($i) delete-mark m11"
- # Menghapus tanda dari node nein setelah 0.10 detik dari waktu awal
-			$ns at [expr $timv+0.10] "$n($nein) delete-mark m1"
-		}
-		set timv [expr $timv+0.25]
-# Menambahkan jeda waktu 0.25 detik sebelum memproses node berikutnya
-	}
-
-# Mengatur waktu awal transmisi alarm dari node sumber ke node sink
-set tim $timv
-# Menambahkan anotasi untuk mencatat bahwa node sumber (sensor) dengan ID $nid sedang mengirim paket ke node sink
-# Anotasi = catatan atau penjelasan tambahan yang ditambahkan ke dalam teks, kode, atau simulasi
-$ns at $tim "$ns trace-annotate \"The source sensor $nid transmitting packet to the sink node\""
-# Menambahkan anotasi untuk mencatat bahwa sensor menggunakan jalur tertentu untuk mencapai node sink
-$ns at $tim "$ns trace-annotate \"The sensor use the following path to reach the Sink node\""
-# Menambahkan anotasi jalur yang akan digunakan oleh sensor untuk mencapai node sink
-$ns at $tim "$ns trace-annotate \"$route($nid,$center)\""
-# Menyimpan ID node sumber dalam variabel soc untuk digunakan dalam iterasi
-set soc $nid
-# Loop untuk setiap node di jalur rute dari node sumbe16 tr (sensor) ke node sink
-foreach rot $route($nid,$center) {
-# Membuat agen LossMonitor baru untuk memantau kerugian paket pada node dalam rute
-	set null [new Agent/LossMonitor]
- # Melampirkan agen LossMonitor ke node saat ini dalam rute
-	$ns attach-agent $n($rot) $null
- # Membuat lalu lintas CBR dengan ukuran paket 512 dan interval 0.05 untuk transmisi data dari node sumber ke node dalam rute
-    # CBR (Constant Bit Rate) adalah jenis lalu lintas jaringan di mana data dikirim dengan kecepatan dan interval yang tetap atau konstan
-	set cbr [attach-cbr-traffic $n($soc) $null $rot 512 0.05]
- # Menambahkan tanda visual pada node dalam rute (rot) dengan warna hijau (#00ff7f)
-	$ns at 0.3 "$n($rot) add-mark m2 #00ff7f"
-# Mengaktifkan mode aktif untuk node sumber pada waktu simulasi saat ini
-$ns at $tim "puts \"DEBUG $tim: $soc status=\$status($soc) sebelum activeMode\""
-	$ns at $tim "activeMode $soc"
- # Mengaktifkan mode mendengarkan untuk node dalam rute pada waktu simulasi saat ini
- $ns at $tim "puts \"DEBUG $tim: $rot status=\$status($rot) sebelum listenMode\""
-	$ns at $tim "listenMode $rot"
- # Memulai lalu lintas CBR pada waktu simulasi saat ini
-	$ns at $tim "$cbr start"
-# Menghentikan lalu lintas CBR setelah 2.5 detik dari waktu awal
-	$ns at [expr $tim+2.5] "$cbr stop"
- # Mengaktifkan mode tidur untuk node sumber setelah 2.5 detik dari waktu awal
-	$ns at [expr $tim+2.52] "sleepMode $soc"
-    $ns at [expr $tim+2.52] "sleepMode $rot"
-  # Menghapus tanda visual dari node dalam rute setelah 2.5 detik dari waktu awal
-	$ns at [expr $tim+2.5] "$n($rot) delete-mark m2"
-  # Menambahkan 2.5 detik ke variabel tim untuk waktu simulasi berikutnya
-	set tim [expr $tim+2.5]
- # Memperbarui node sumber (soc) ke node saat ini dalam rute untuk langkah berikutnya
-	set soc $rot
-}
-# Mengatur mode tidur untuk node sumber (soc) pada waktu saat ini
-$ns at $tim "sleepMode $soc"
-# Menambahkan anotasi yang menyatakan bahwa node sink menyiarkan laporan ke semua node
-# foreach rot1 $route($nid,$center) {
-	# $ns at 7.0 "$n($rot1) delete-mark m1"
-	# $ns at 7.0 "sleepMode $rot1"
-# }
-$ns at $tim "$ns trace-annotate \"The Sink node broadcasting the report to all the nodes\""
-# Menambahkan anotasi yang mencantumkan jalur yang diikuti oleh pesan dari node sumber ke node sink
-$ns at $tim "$ns trace-annotate \"$route($nid,$center)\""
-# Penjadwalan penyiaran alarm oleh node sink secara bertingkat dengan jeda waktu antar level
-#center node broadcast the alarm
-#level by level offset schedule
-set time $tim
-# Menggunakan fungsi myRand untuk memilih salah satu dari tiga kelompok node (en1, en2, en3) secara acak untuk menerima alarm
-set t [myRand 0 2]
-if {$t==0} {
-set f $en1
-} elseif {$t==1} {
-set f $en2
-} else {
-set f $en3
-}
-# Menyiarkan pesan dari node sink ke setiap node dalam grup terpilih (f)
-foreach nod $f {
-	set soc $center
- # Mengirim pesan dari node sink ke setiap node dalam rute ke node tujuan (nod)
-	foreach rot $route($center,$nod) {
- # Membuat agen LossMonitor baru untuk memantau kerugian paket pada node dalam rute
-	set null1 [new Agent/LossMonitor]
-	$ns attach-agent $n($rot) $null1
- # Membuat lalu lintas CBR untuk transmisi data dari node sink ke node dalam rute
-	set cbr [attach-cbr-traffic $n($soc) $null1 $rot 512 0.05]
-  # Menambahkan tanda visual pada node dalam rute dengan warna hijau
-	$ns at $time "$n($rot) add-mark m1 green"
-  # Menambahkan anotasi yang mencatat pengiriman pesan dari sensor (soc) ke sensor tujuan (rot)
-	$ns at $time "$ns trace-annotate \"The sensor ($soc) gossiping the messge to the sensor node ($rot)\""
- # Mengaktifkan mode aktif untuk node sumber dan mode mendengarkan untuk node tujuan pada waktu simulasi saat ini
-	$ns at $time "activeMode $soc"
-	$ns at $time "listenMode $rot"
-  # Memulai lalu lintas CBR pada waktu simulasi saat ini
-	$ns at $time "$cbr start"
- # Menghentikan lalu lintas CBR dan menghapus tanda setelah 2.5 detik
-	$ns at [expr $time+2.5] "$cbr stop"
-	$ns at [expr $time+2.5] "sleepMode $soc"
-	$ns at [expr $time+2.5] "$n($rot) delete-mark m1"
- # Memperbarui waktu untuk iterasi berikutnya
-	set time [expr $time+2.5]
- # Memperbarui node sumber untuk iterasi berikutnya
-	set soc $rot
-}
-  # Mengatur mode tidur untuk node sumber setelah selesai
-$ns at $time "sleepMode $soc"
 }
 
 # Normalize policy distribution π(s)
